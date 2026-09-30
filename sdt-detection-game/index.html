@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>微光侦测站 · 信号检测论互动实验</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ======================= 顶部标题 ======================= -->
+<header class="site-header">
+  <div class="header-inner">
+    <h1>🌌 微光侦测站</h1>
+    <p class="subtitle">一个基于「信号检测论 (Signal Detection Theory)」的知觉检测小游戏</p>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- ======================= 第一部分：场景与参数定义 ======================= -->
+  <section id="scenario" class="card">
+    <h2>① 场景与参数定义</h2>
+
+    <div class="scenario-story">
+      <p>
+        你是一名<strong>深夜天文观测员</strong>。屏幕上是一片布满随机噪点的夜空，
+        每一次试次中，远方<strong>可能</strong>会闪现一颗极其微弱的闪光（信号），
+        也可能什么都没有、只有夜空的随机噪点（噪音）。
+      </p>
+      <p>
+        闪光持续 <span id="storyDuration">500</span> 毫秒，转瞬即逝。
+        你的任务：在闪光结束后，尽快判断 —— <strong>刚才有没有出现闪光？</strong>
+      </p>
+    </div>
+
+    <!-- 参数设置区 -->
+    <div class="param-grid">
+      <div class="param-item">
+        <label for="paramTrials">试次数（每局 ≥ 20）</label>
+        <div class="slider-row">
+          <input type="range" id="paramTrials" min="20" max="200" step="1" value="40" />
+          <span class="slider-value" id="paramTrialsVal">40 次</span>
+        </div>
+      </div>
+
+      <div class="param-item">
+        <label for="paramPrior">先验概率 P(S)（信号出现的概率）</label>
+        <div class="slider-row">
+          <input type="range" id="paramPrior" min="0.1" max="0.9" step="0.01" value="0.5" />
+          <span class="slider-value" id="paramPriorVal">0.50</span>
+        </div>
+      </div>
+
+      <div class="param-item">
+        <label for="paramDprime">难度（信号强度 d′，越大越简单）</label>
+        <div class="slider-row">
+          <input type="range" id="paramDprime" min="0.3" max="3.5" step="0.1" value="2.0" />
+          <span class="slider-value" id="paramDprimeVal">d′ = 2.0</span>
+        </div>
+      </div>
+
+      <div class="param-item">
+        <label for="paramDuration">刺激呈现时长（毫秒）</label>
+        <div class="slider-row">
+          <input type="range" id="paramDuration" min="200" max="1500" step="5" value="500" />
+          <span class="slider-value" id="paramDurationVal">500ms</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 四种结果含义说明 -->
+    <h3>四种可能的结果</h3>
+    <div class="outcome-grid">
+      <div class="outcome hit">
+        <div class="outcome-name">击中 Hit</div>
+        <div class="outcome-desc">有闪光 ✅ 你说「有」<br/><em>好眼力！信号被你成功捕获。</em></div>
+      </div>
+      <div class="outcome miss">
+        <div class="outcome-name">漏报 Miss</div>
+        <div class="outcome-desc">有闪光 ❌ 你说「没有」<br/><em>闪光从你眼皮底下溜走了。</em></div>
+      </div>
+      <div class="outcome fa">
+        <div class="outcome-name">虚报 False Alarm</div>
+        <div class="outcome-desc">没有闪光 ❌ 你说「有」<br/><em>你把噪点误认成了闪光。</em></div>
+      </div>
+      <div class="outcome cr">
+        <div class="outcome-name">正确拒斥 Correct Rejection</div>
+        <div class="outcome-desc">没有闪光 ✅ 你说「没有」<br/><em>沉着冷静，没有被噪声骗到。</em></div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-big" id="btnStart">🚀 开始本局游戏</button>
+  </section>
+
+  <!-- ======================= 第二部分：交互式检测游戏 ======================= -->
+  <section id="game" class="card hidden">
+    <h2>② 检测游戏进行中</h2>
+
+    <div class="game-statusbar">
+      <div>试次进度：<strong id="trialProgress">0 / 40</strong></div>
+      <div>当前阶段：<strong id="trialPhase">准备</strong></div>
+      <div>本局难度：<strong id="gameDprime">d′ = 2.0</strong>　P(S) = <strong id="gamePrior">0.50</strong></div>
+    </div>
+
+    <!-- 刺激画布 -->
+    <div class="canvas-wrap">
+      <canvas id="stimCanvas" width="640" height="400"></canvas>
+      <div class="canvas-overlay" id="canvasOverlay">
+        <div id="overlayText">注视中央的「+」</div>
+      </div>
+    </div>
+
+    <!-- 反应计时条 -->
+    <div class="timer-bar-wrap" id="timerWrap">
+      <div class="timer-bar" id="timerBar"></div>
+    </div>
+
+    <!-- 反应按钮 -->
+    <div class="response-row">
+      <button class="btn btn-yes" id="btnYes" disabled>💡 有闪光 <kbd>F</kbd></button>
+      <button class="btn btn-no"  id="btnNo"  disabled>🌑 没有闪光 <kbd>J</kbd></button>
+    </div>
+    <p class="hint">闪光消失后请尽快按键作答（超时 3 秒将自动记为「没有」）。</p>
+  </section>
+
+  <!-- ======================= 第三部分：计算结果与展示 ======================= -->
+  <section id="results" class="card hidden">
+    <h2>③ 本局结果 · 信号检测论分析</h2>
+
+    <!-- 混淆矩阵 -->
+    <div class="result-flex">
+      <div class="result-col">
+        <h3>结果统计（混淆矩阵）</h3>
+        <table class="confusion-table">
+          <thead>
+            <tr><th></th><th>你说「有」</th><th>你说「没有」</th><th>合计</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>实际有信号</th>
+              <td class="cell-hit"  id="statHit">0</td>
+              <td class="cell-miss" id="statMiss">0</td>
+              <td id="statSignalTotal">0</td>
+            </tr>
+            <tr>
+              <th>实际无信号</th>
+              <td class="cell-fa"   id="statFA">0</td>
+              <td class="cell-cr"   id="statCR">0</td>
+              <td id="statNoiseTotal">0</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="result-col">
+        <h3>核心指标</h3>
+        <table class="metrics-table">
+          <tbody>
+            <tr><td>击中率 P(Hit)</td><td id="mPHit">–</td></tr>
+            <tr><td>虚报率 P(FA)</td><td id="mPFA">–</td></tr>
+            <tr><td>辨别力指数 d′</td><td id="mDprime">–</td></tr>
+            <tr><td>判断标准 c</td><td id="mC">–</td></tr>
+            <tr><td>报告倾向 β</td><td id="mBeta">–</td></tr>
+            <tr><td>准确率 Accuracy</td><td id="mAcc">–</td></tr>
+          </tbody>
+        </table>
+        <p class="metric-note" id="metricNote"></p>
+      </div>
+    </div>
+
+    <!-- ROC 曲线 -->
+    <h3>ROC 曲线（接收者操作特征曲线）</h3>
+    <div class="chart-wrap">
+      <canvas id="rocCanvas" width="560" height="380"></canvas>
+      <p class="chart-note">
+        曲线为理论 ROC（以本局实测 d′ 绘制）；圆点为本局实测 (P(FA), P(Hit))；
+        灰色小点为历史各局数据点。
+      </p>
+    </div>
+
+    <div class="result-actions">
+      <button class="btn btn-primary" id="btnAgain">🔁 再来一局</button>
+      <button class="btn btn-ghost" id="btnBackSettings">⚙️ 调整参数</button>
+    </div>
+  </section>
+
+  <!-- ======================= 加分项：概念可视化实验室 ======================= -->
+  <section id="lab" class="card">
+    <h2>🧪 SDT 概念可视化实验室</h2>
+    <p>
+      信号检测论认为：每次观察都会在脑中产生一个「感觉强度」证据值。
+      噪音试次的证据服从 <em>N(0, 1)</em> 分布，信号试次服从 <em>N(d′, 1)</em> 分布。
+      你在心中设有一条<strong>判断标准 c</strong>：证据超过 c 就说「有」，否则说「没有」。
+    </p>
+
+    <div class="chart-wrap">
+      <canvas id="labCanvas" width="720" height="360"></canvas>
+    </div>
+
+    <div class="lab-controls">
+      <div class="lab-slider">
+        <label>信号强度 d′：<span id="labDVal">2.0</span></label>
+        <input type="range" id="labD" min="0" max="4" step="0.01" value="2" />
+      </div>
+      <div class="lab-slider">
+        <label>判断标准 c：<span id="labCVal">0.0</span></label>
+        <input type="range" id="labC" min="-2.5" max="2.5" step="0.01" value="0" />
+      </div>
+    </div>
+
+    <div class="lab-readout">
+      <span>P(Hit) = <strong id="labPHit">–</strong></span>
+      <span>P(FA) = <strong id="labPFA">–</strong></span>
+      <span>d′ = <strong id="labDOut">–</strong></span>
+      <span>c = <strong id="labCOut">–</strong></span>
+      <span>AUC = <strong id="labAUC">–</strong></span>
+    </div>
+
+    <!-- ROC 交互可视化：与上方 d′、c 滑块联动 -->
+    <h3>ROC 曲线 ↔ 校正后 Z 变换直线（随上方滑块联动）</h3>
+    <p class="lab-roc-note">
+      左图：概率坐标下的 ROC 曲线。拖动 <strong>d′</strong> 滑块，曲线整体抬升/回落；
+      拖动 <strong>c</strong> 滑块，红点沿曲线滑动（保守 → 左下，激进 → 右上）。
+      右图：把两个概率都做 Z 变换（标准化）后，ROC 变成一条<strong>斜率为 1 的直线</strong> z(H) = z(FA) + d′，
+      截距就是 d′——这就是 d′ 的几何意义。红点是左图同一点在直线上的对应位置。
+    </p>
+    <div class="chart-duo">
+      <div class="chart-wrap">
+        <canvas id="labRocCanvas" width="360" height="330"></canvas>
+        <p class="chart-note">
+          ROC（概率坐标）　红点 = (<span id="rocPtFA">–</span>, <span id="rocPtH">–</span>)
+        </p>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="labZRocCanvas" width="360" height="330"></canvas>
+        <p class="chart-note">
+          zROC（Z 变换直线）　对应点 = (<span id="zrocPtFA">–</span>, <span id="zrocPtH">–</span>)
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= 加分项：历史战绩排行榜 ======================= -->
+  <section id="history" class="card">
+    <h2>🏆 历史战绩（本机存储）</h2>
+    <table class="history-table" id="historyTable">
+      <thead>
+        <tr>
+          <th>#</th><th>时间</th><th>试次</th><th>设定 d′</th>
+          <th>实测 d′</th><th>c</th><th>P(Hit)</th><th>P(FA)</th><th>准确率</th>
+        </tr>
+      </thead>
+      <tbody id="historyBody">
+        <tr><td colspan="9" class="empty-row">暂无记录，玩一局试试吧！</td></tr>
+      </tbody>
+    </table>
+    <button class="btn btn-ghost btn-small" id="btnClearHistory">🗑️ 清空记录</button>
+  </section>
+
+  <footer class="site-footer">
+    <p>信号检测论公式：d′ = Z(P<sub>Hit</sub>) − Z(P<sub>FA</sub>)　·　c = −½[Z(P<sub>Hit</sub>) + Z(P<sub>FA</sub>)]　·　β = e<sup>d′·c</sup>（采用 log-linear 校正避免极端值）</p>
+  </footer>
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>
